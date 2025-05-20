@@ -1,0 +1,40 @@
+@startuml ContextC4
+
+title Открытие депозитов онлайн
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+Person(client, "Клиент")
+Person(deposits_manager, "Менеджер\nбек-офиса депозитов")
+Person(credits_manager, "Менеджер\nбек-офиса кредитов")
+Person(front_manager, "Менеджер\nфронт-офиса")
+Person(call_operator, "Оператор\nкол-центра")
+
+System(internet_bank, "Интернет банк", "Показывает предложения, помогает открыть депозит")
+System(abs, "AБС", "Управляет банковскими операциями")
+System(sms_gateway, "СМС шлюз", "Интеграция с Телеком-оператором")
+System_Ext(site, "Сайт банка", "Предоставляет информацию об услугах банка")
+System_Ext(call_center, "Система кол-центра", "Управляет звонками клиентам")
+System_Ext(sms_operator, "Телеком-оператор", "Отвечает за отправку смс")
+
+Rel(client, site, "Подача заявки на депозит")
+Rel(site, abs, "Регистрация заявки")
+Rel(client, internet_bank, "Открытие депозитов и накопительных счетов")
+Rel(internet_bank,abs, "Получает актуальные ставки по депозитам, обрабатывает заявки")
+
+Rel(client,front_manager, "Личное обращение для подтверждения личности")
+Rel(front_manager, abs, "Отправка документов клиентов. Работа с заявками на депозит.")
+
+Rel(credits_manager, abs, "Получение актуальных ставок")
+
+Rel(deposits_manager, abs, "Получение актуальных ставок. Работа с заявками на депозит")
+Rel(deposits_manager, call_center, "Использует для связи с клиентом")
+
+Rel(call_operator, call_center, "Отвечает на звонки")
+
+Rel(client, call_center, "Звонит")
+
+Rel(abs, sms_gateway, "Отправка смс клиентам")
+Rel(sms_gateway, sms_operator, "Создание команды отправки смс у оператора связи")
+
+@enduml
