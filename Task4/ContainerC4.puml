@@ -1,0 +1,89 @@
+@startuml ContainerC4
+
+title Открытие депозитов онлайн
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(client, "Клиент")
+Person(deposits_manager, "Менеджер\nотдела депозитов")
+Person(credits_manager, "Менеджер\nотдела кредитов")
+Person(front_manager, "Менеджер\nфронт-офиса")
+
+System_Ext(site, "Сайт банка", "Отображает список депозитов. Позволяет оставить заявку.")
+System_Ext(call_center, "Система кол-центра", "Управляет звонками клиентам")
+System_Ext(sms_operator, "Телеком-оператор", "Отвечает за отправку смс")
+System(abs_store, "Файловое хранилище", "Служит для передачи файлов с актуальными ставками", "NFS, Minio, SFTP")
+System_Ext(call_center_ext, "Система кол-центра партнеров", "Управляет звонками клиентам")
+Container(message_broker, "Брокер сообщений", "Kafka", "")
+Rel(client, call_center, "Первичное обращение для создания заявки")
+
+System_Boundary(internet_bank, "Интернет банк") {
+    Container(internet_bank_client, "Internet Bank. Публичный для клиентов.", "C#, ASP.NET MVC 4.5", "Веб-приложение интернет-банк")
+    Container(internet_bank_staff, "Internet Bank. Закрытый для сотрудников.", "C#, ASP.NET MVC 4.5", "Веб-приложение")
+    Container(internet_bank_auth, "Сервис авторизации", "C#, ASP.NET MVC 4.5", "Аутентификация, авторизация")
+    ContainerDb(internet_bank_auth_db, "База данных сервиса авторизации", "MS SQL", "Аккаунты клиентов")
+    ContainerDb(internet_bank_db, "База данных интернет банка", "MS SQL", "Информация по депозитам клиентов, актуальные ставки, персональные предложения")
+
+    Container(internet_bank_requests, "Сервис заявок на депозиты", "C#, ASP.NET MVC API 4.5", "Управляет заявками клиентов на депозиты")
+    ContainerDb(internet_bank_requests_db, "База данных заявок", "MS SQL", "Заявки и депозиты клиентов, актуальные ставки, персональные предложения")
+}
+
+System_Boundary(abs, "АБC") {
+    Person(back_manager, "Менеджер\nбек-офиса")
+    System(abs_call_center, "Система кол-центра АБС", "Управляет звонками клиентам")
+    Container(abs_desktop, "Клиент АБС", "Delphy", "Десктоп приложение для работы с АБС")
+    Container(abs_api, "API АБС", "Delphy", "API для работы Десктоп приложения АБС и интеграций")
+    System(abs_sms_gateway, "СМС шлюз", "Интеграция с Телеком-оператором")
+    ContainerDb(abs_db, "Основная база данных АБС", "Oracle", "Данные АБС")
+    Container(abs_gateway, "Шлюз для работы с серивисами АБС", "Java Spring Boot", "") 
+    Container(abs_rates, "Сервис работы со ставками ЦБ", "Java Spring Boot", "Сервис управления общими и персонифицированными ставками по депозитам.")
+    ContainerDb(abs_rates_db, "База данных сервиса ставок ЦБ", "PostgreSQL", "Данные ЦБ и персонализированные ставки")
+}
+
+Rel(call_center, internet_bank_requests, "Создание заявок на депозит", "HTTPS, REST")
+
+Rel(back_manager, abs_desktop, "Внесение актуальных данных по ставкам ЦБ.Согласование индивидуальных ставок.", "HTTPS, REST")
+Rel(abs_desktop, abs_gateway, "Передача/получение данных.", "HTTPS, REST")
+
+
+Rel(front_manager, abs_gateway, "Подтверждает личность клиента", "HTTPS")
+Rel(front_manager, internet_bank_staff, "Заводит заявки на депозит по личным обращениям", "HTTPS")
+
+Rel(internet_bank_staff, internet_bank_auth, "Управление клиентами", "HTTPS, REST")
+Rel(credits_manager, abs_gateway, "Получение актуальных ставок", "HTTPS, REST")
+Rel(internet_bank_staff, abs_gateway, "Получение актуальных ставок. Согласование персонального предложения. Отправка уведомлений.", "HTTPS, REST")
+
+Rel(internet_bank_client, internet_bank_db, "Чтение/Запись", "SQL")
+Rel(internet_bank_client, abs_gateway, "Подтверждение операции.", "HTTPS, REST")
+Rel(abs_gateway, abs_sms_gateway, "Отправка СМС", "HTTPS, REST")
+Rel(abs_sms_gateway, sms_operator, "Отправка СМС", "HTTPS, REST")
+
+Rel(client, site, "Получение списка депозитов. Заявка на депозит", "HTTPS")
+Rel(site, internet_bank_client, "Переадресует", "HTTPS")
+Rel(site, internet_bank_requests, "Создание заявок на депозит", "HTTPS, REST")
+Rel(client, internet_bank_client, "Cтавки и персональные предложения\nУправление депозитами", "HTTPS")
+
+Rel(internet_bank_client, internet_bank_auth, "Проверка учетных данных пользователей", "HTTPS, REST")
+Rel(internet_bank_auth, internet_bank_auth_db, "Чтение/Запись", "TCP, SQL")
+
+Rel(internet_bank_staff, internet_bank_db, "Чтение/Запись", "TCP, SQL")
+Rel(internet_bank_staff, internet_bank_requests, "Работа с заявками на депозит", "HTTPS, REST")
+
+Rel(internet_bank_requests, internet_bank_requests_db, "Чтение/Запись", "TCP, SQL")
+Rel(deposits_manager, internet_bank_staff, "Обрабатывает заявки на депозит", "UI")
+
+Rel(internet_bank_staff, message_broker, "Получение актуальных ставок", "TCP, KAFKA")
+Rel(internet_bank_requests, message_broker, "Получение решений по индивидуальным ставкам", "TCP, KAFKA")
+Rel(abs_rates, message_broker, "Передача обновленных данных по ставкам и персональным предложениям", "TCP, KAFKA")
+
+Rel(abs_gateway, abs_rates, "Получение актуальных ставок", "HTTPS, REST")
+Rel(abs_gateway, abs_api, "Запросы от десктоп приложения", "HTTPS, REST")
+Rel(abs_rates, abs_rates_db, "Чтение/Запись", "TCP, SQL")
+Rel(abs_api, abs_db, "Чтение/Запись", "TCP, SQL")
+
+Rel(abs_gateway, abs_store, "Добавление актуального документа со ставками депозитов", "HTTPS, SFTP")
+Rel_U(call_center_ext, abs_store, "Получение актуального документа со ставками депозитов")
+Rel(abs_call_center, abs_gateway, "Получение актуальных ставок по депозитам", "HTTPS, REST")
+Rel(abs_call_center, internet_bank_requests, "Создание заявок на депозит", "HTTPS, REST")
+Rel_U(call_center_ext, internet_bank_requests, "Создание заявок на депозит", "HTTPS, REST")
+@enduml
